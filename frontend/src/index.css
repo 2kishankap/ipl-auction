@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+@theme {
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+  --color-brand-green: #10b981;
+  --color-brand-green-glow: rgba(16, 185, 129, 0.4);
+  --color-brand-blue: #3b82f6;
+  --color-brand-blue-glow: rgba(59, 130, 246, 0.4);
+  --color-brand-red: #ef4444;
+  --color-brand-red-glow: rgba(239, 68, 68, 0.5);
+  
+  --font-inter: 'Inter', sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-slate-900 text-slate-100 font-inter antialiased overflow-x-hidden;
+    background-image: radial-gradient(circle at top, #1e293b, #0f172a);
+    background-size: cover;
+    background-attachment: fixed;
+  }
+}
+
+@layer utilities {
+  .glow-green {
+    box-shadow: 0 0 15px var(--color-brand-green-glow), 0 0 30px var(--color-brand-green-glow);
+  }
+  .glow-blue {
+    box-shadow: 0 0 15px var(--color-brand-blue-glow), 0 0 30px var(--color-brand-blue-glow);
+  }
+  .glow-red {
+    box-shadow: 0 0 15px var(--color-brand-red-glow), 0 0 30px var(--color-brand-red-glow);
+  }
+  .text-glow {
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+  }
+  .glass-panel {
+    @apply bg-slate-800/60 backdrop-blur-md border border-slate-700/50 rounded-xl;
+  }
+}
