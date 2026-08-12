@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Gavel, Rocket, RefreshCw, ArrowRightLeft } from 'lucide-react';
+import { ChevronLeft, Gavel, Rocket, RefreshCw, ArrowRightLeft, FileSpreadsheet } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { api } from '../services/api';
 
 const MiniAuction = () => {
@@ -10,6 +11,7 @@ const MiniAuction = () => {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [tab, setTab] = useState('pool'); // 'pool' | 'transactions'
 
   useEffect(() => {
@@ -57,6 +59,42 @@ const MiniAuction = () => {
     }
   };
 
+  const handleExportExcel = () => {
+    setIsExporting(true);
+    try {
+      const exportData = pool.map(entry => ({
+         'Player Name': entry.playerId?.name || 'Unknown',
+         'Role': entry.playerId?.role || 'Unknown',
+         'Status': entry.status,
+         'Source Details': entry.source === 'RELEASED' ? `Released by ${entry.releasedByTeamId?.teamName || 'Unknown'}` : 'Main Auction Unsold',
+         'New Franchise (If Sold)': entry.soldToTeamId?.teamName || '-',
+         'Sold Price (Cr)': entry.soldPrice ? (entry.soldPrice / 10000000).toFixed(2) : '-'
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      
+      const colWidths = [
+          { wch: 25 }, // Player Name
+          { wch: 15 }, // Role
+          { wch: 12 }, // Status
+          { wch: 40 }, // Source Details
+          { wch: 25 }, // New Franchise
+          { wch: 15 }  // Sold Price
+      ];
+      worksheet['!cols'] = colWidths;
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, `Mini Auction Pool`);
+
+      XLSX.writeFile(workbook, `Mini_Auction_Pool_Week_${weekId}.xlsx`);
+    } catch (err) {
+      console.error('Export failed', err);
+      alert('Failed to generate Excel file.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const available = pool.filter(e => e.status === 'AVAILABLE');
   const sold = pool.filter(e => e.status === 'SOLD');
   const unsold = pool.filter(e => e.status === 'UNSOLD');
@@ -76,8 +114,11 @@ const MiniAuction = () => {
               <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Re-using the live Socket.io bidding core for released & unsold players</p>
             </div>
             <div className="flex space-x-3">
+                <button onClick={handleExportExcel} disabled={isExporting || pool.length === 0} className="flex items-center px-5 py-3 bg-green-900/40 text-green-400 border border-green-500/50 rounded-xl hover:bg-green-600/40 font-black tracking-widest uppercase text-xs transition disabled:opacity-50">
+                   <FileSpreadsheet className={`w-4 h-4 mr-2 ${isExporting ? 'animate-pulse' : ''}`} /> Excel
+                </button>
                 <button onClick={handleSeedPool} disabled={seeding} className="flex items-center px-5 py-3 bg-fuchsia-600/20 text-fuchsia-400 border border-fuchsia-500/50 rounded-xl hover:bg-fuchsia-600/40 font-black tracking-widest uppercase text-xs transition disabled:opacity-50">
-                   <RefreshCw className={`w-4 h-4 mr-2 ${seeding ? 'animate-spin' : ''}`} /> {seeding ? 'Seeding...' : 'Seed Pool'}
+                   <RefreshCw className={`w-4 h-4 mr-2 ${seeding ? 'animate-spin' : ''}`} /> {seeding ? 'Seeding...' : 'Seed'}
                 </button>
                 <button onClick={handleStartMiniAuction} disabled={available.length === 0} className="flex items-center px-5 py-3 bg-violet-600/20 text-violet-400 border border-violet-500/50 rounded-xl hover:bg-violet-600/40 font-black tracking-widest uppercase text-xs transition disabled:opacity-50 shadow-[0_0_15px_rgba(139,92,246,0.3)]">
                    <Rocket className="w-4 h-4 mr-2" /> Launch Bidding

@@ -34,10 +34,10 @@ const weeklyReleaseRequestSchema = new mongoose.Schema({
 // A team can only file one overarching release request block per week.
 weeklyReleaseRequestSchema.index({ weekId: 1, teamId: 1 }, { unique: true });
 
-// Custom constraint ensuring a team cannot release more than 2 players per week.
+// Custom constraint ensuring a team cannot release more than 3 players per week.
 weeklyReleaseRequestSchema.pre('validate', function() {
-    if (this.releasedPlayerIds && this.releasedPlayerIds.length > 2) {
-        throw new Error('A Franchise cannot legally release more than 2 players per Gameweek block.');
+    if (this.releasedPlayerIds && this.releasedPlayerIds.length > 3) {
+        throw new Error('A Franchise cannot legally release more than 3 players per Gameweek block.');
     }
 });
 

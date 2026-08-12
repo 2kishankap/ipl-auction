@@ -109,20 +109,6 @@ const LeagueDashboard = () => {
                        </div>
                        <ChevronRight className="w-5 h-5 text-slate-600" />
                     </Link>
-                    <Link to={`/auction/${auctionId}/league/week/${week._id}/releases`} className="w-full text-left bg-slate-950/50 border border-slate-800 rounded-xl p-4 flex justify-between items-center hover:border-red-500/50 transition overflow-hidden">
-                       <div>
-                         <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Releases</div>
-                         <div className="text-sm font-black text-slate-300 mt-1">Submit Evictions</div>
-                       </div>
-                       <ChevronRight className="w-5 h-5 text-slate-600" />
-                    </Link>
-                    <Link to={`/auction/${auctionId}/league/week/${week._id}/mini-auction`} className="w-full text-left bg-slate-950/50 border border-slate-800 rounded-xl p-4 flex justify-between items-center hover:border-fuchsia-500/50 transition overflow-hidden">
-                       <div>
-                         <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Mini-Auction</div>
-                         <div className="text-sm font-black text-slate-300 mt-1">Launch Bidding Engine</div>
-                       </div>
-                       <ChevronRight className="w-5 h-5 text-slate-600" />
-                    </Link>
                  </div>
              </div>
            ))

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft, Trophy, Medal } from 'lucide-react';
+import { ChevronLeft, Trophy, Medal, Download, FileSpreadsheet } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { api } from '../services/api';
 import TeamPerformanceModal from './TeamPerformanceModal';
 
@@ -9,6 +10,8 @@ const LeagueLeaderboard = () => {
   const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedTeamId, setSelectedTeamId] = useState(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const leaderboardRef = useRef(null);
 
   useEffect(() => {
     fetchLeaderboard();
@@ -26,9 +29,53 @@ const LeagueLeaderboard = () => {
     }
   };
 
+  const handleExportCSV = async () => {
+    try {
+      setIsExporting(true);
+      
+      const exportData = [];
+      
+      for (let i = 0; i < leaderboard.length; i++) {
+         const team = leaderboard[i];
+         const res = await api.get(`/league/${auctionId}/weeks/${weekId}/performance/${team.teamId}`);
+         const performance = res.data.performance;
+         
+         const startingPlayers = performance.filter(p => p.isStarting);
+         const playerStrings = startingPlayers.map(p => `${p.name} (${p.points})`).join(' | ');
+         
+         exportData.push({
+           'Rank': i + 1,
+           'Franchise Name': team.teamName,
+           'Total Points': team.totalPoints || 0,
+           'Starting XI Breakdown': playerStrings
+         });
+      }
+
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      
+      const colWidths = [
+          { wch: 8 }, 
+          { wch: 25 }, 
+          { wch: 15 }, 
+          { wch: 120 } 
+      ];
+      worksheet['!cols'] = colWidths;
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, `Leaderboard Data`);
+
+      XLSX.writeFile(workbook, `Leaderboard_Data_Week_${weekId}.xlsx`);
+      
+    } catch (err) {
+      console.error('Failed to export Excel', err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-inter p-8">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto" ref={leaderboardRef}>
         <Link to={`/auction/${auctionId}/league`} className="flex items-center text-slate-400 hover:text-white mb-8 font-bold tracking-widest text-xs uppercase transition">
            <ChevronLeft className="w-4 h-4 mr-1" /> Back to Schedule
         </Link>
@@ -40,6 +87,14 @@ const LeagueLeaderboard = () => {
               </h1>
               <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Dynamic Gameweek Standings via MongoDB Aggregation Pipeline</p>
             </div>
+            <button 
+              onClick={handleExportCSV}
+              disabled={isExporting}
+              className="flex items-center bg-green-900 border border-green-700 hover:bg-green-800 text-green-100 transition-colors px-4 py-2 rounded-xl text-sm font-bold uppercase tracking-widest disabled:opacity-50"
+            >
+              {isExporting ? <FileSpreadsheet className="w-4 h-4 mr-2 animate-pulse" /> : <Download className="w-4 h-4 mr-2" />}
+              {isExporting ? 'Extracting Data...' : 'Export to Excel'}
+            </button>
         </div>
 
         <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">

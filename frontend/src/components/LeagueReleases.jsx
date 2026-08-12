@@ -49,8 +49,8 @@ const LeagueReleases = () => {
     if (releasedIds.includes(playerId)) {
       setReleasedIds(prev => prev.filter(id => id !== playerId));
     } else {
-      if (releasedIds.length >= 2) {
-        return alert("STRICT COMPLIANCE: A Franchise cannot legally tag more than 2 players for release per block.");
+      if (releasedIds.length >= 3) {
+        return alert("STRICT COMPLIANCE: A Franchise cannot legally tag more than 3 players for release per block.");
       }
       setReleasedIds(prev => [...prev, playerId]);
     }
@@ -77,7 +77,7 @@ const LeagueReleases = () => {
           <UserMinus className="w-10 h-10 mr-4 text-red-500" /> Eviction Portal
         </h1>
         <p className="text-slate-500 font-bold uppercase tracking-widest text-xs mb-12 flex items-center">
-           <ShieldAlert className="w-4 h-4 mr-2 text-yellow-500" /> Mathematical limit: Max 2 Evictions Per Block
+           <ShieldAlert className="w-4 h-4 mr-2 text-yellow-500" /> Mathematical limit: Max 3 Evictions Per Block
         </p>
 
         <div className="flex space-x-4 mb-8">
@@ -96,7 +96,7 @@ const LeagueReleases = () => {
            <div className="flex justify-between items-center mb-6 border-b border-slate-800 pb-4">
               <h3 className="text-xl font-black text-white uppercase tracking-wider">Active Roster Selection</h3>
               <div className="text-sm font-bold tracking-widest uppercase flex items-center">
-                  <span className={releasedIds.length === 2 ? 'text-red-400' : 'text-slate-400'}>{releasedIds.length}</span><span className="text-slate-600 ml-2">/ 2 SELECTED</span>
+                  <span className={releasedIds.length === 3 ? 'text-red-400' : 'text-slate-400'}>{releasedIds.length}</span><span className="text-slate-600 ml-2">/ 3 SELECTED</span>
               </div>
            </div>
 

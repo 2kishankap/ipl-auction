@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Download, Loader2 } from 'lucide-react';
+import { X, Download, Loader2, UserMinus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SquadWarningPanel from './SquadWarningPanel';
 import { SpentProgressBar, RoleCountChips, OverseasTags } from './SquadAnalytics';
@@ -31,6 +31,20 @@ const TeamDetailsModal = ({ team, onClose }) => {
       alert('Failed to download CSV');
     } finally {
       setIsDownloading(false);
+    }
+  };
+
+  const handleReleasePlayer = async (player) => {
+    if (!window.confirm(`WARNING: Are you sure you want to completely RELEASE ${player.name} from ${team.teamName}? This will instantly refund the purse and remove them from the squad limits.`)) {
+      return;
+    }
+    
+    try {
+      await api.post(`/teams/${team._id}/release/${player._id}`);
+      // Socket event 'playerSold' from backend triggers real-time UI refresh automatically
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || 'Failed to release player');
     }
   };
 
@@ -93,6 +107,7 @@ const TeamDetailsModal = ({ team, onClose }) => {
                   <th className="py-3 px-2">Role</th>
                   <th className="py-3 px-2">IPL Team</th>
                   <th className="py-3 px-2 text-right">Sold Price</th>
+                  <th className="py-3 px-2 text-center">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -105,11 +120,16 @@ const TeamDetailsModal = ({ team, onClose }) => {
                      <td className="py-4 px-2 text-brand-blue font-bold text-xs">{p.role}</td>
                      <td className="py-4 px-2 text-slate-400 text-xs font-mono">{p.iplTeam}</td>
                      <td className="py-4 px-2 text-right text-brand-green font-black text-base">₹ {(p.soldPrice / 10000000).toFixed(2)} Cr</td>
+                     <td className="py-4 px-2 text-center flex justify-center">
+                       <button onClick={() => handleReleasePlayer(p)} className="p-1.5 bg-brand-red/10 text-brand-red border border-brand-red/30 hover:bg-brand-red hover:text-white rounded transition-colors" title="Release Player">
+                         <UserMinus className="w-4 h-4" />
+                       </button>
+                     </td>
                    </tr>
                 ))}
                 {team.playersBought.length === 0 && (
                   <tr>
-                    <td colSpan="4" className="py-8 text-center text-slate-500 italic text-xs">No players drafted yet.</td>
+                    <td colSpan="5" className="py-8 text-center text-slate-500 italic text-xs">No players drafted yet.</td>
                   </tr>
                 )}
               </tbody>

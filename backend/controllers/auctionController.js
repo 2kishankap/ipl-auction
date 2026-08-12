@@ -2,6 +2,8 @@ const { getNextPlayer, initQueue } = require('../services/auctionService');
 const { getAuctionState, setAuctionState, updateAuctionField, DEFAULT_STATE } = require('../services/auctionStateService');
 const Player = require('../models/Player');
 const Team = require('../models/Team');
+const MiniAuctionPoolEntry = require('../models/MiniAuctionPoolEntry');
+const RosterTransaction = require('../models/RosterTransaction');
 const { parse } = require('json2csv');
 
 exports.startAuction = async (req, res) => {
@@ -112,6 +114,18 @@ exports.markUnsold = async (req, res) => {
             player.status = 'unsold';
             player.isPassed = true;
             await player.save();
+
+            // --- MINI-AUCTION SYNC ---
+            if (state.mode === 'MINI' && state.miniAuctionWeekId) {
+                try {
+                    await MiniAuctionPoolEntry.findOneAndUpdate(
+                        { auctionId, weekId: state.miniAuctionWeekId, playerId: player._id },
+                        { status: 'UNSOLD' }
+                    );
+                } catch (miniErr) {
+                    console.error("Mini-Auction Unsold Sync Error:", miniErr);
+                }
+            }
         }
         
         state.auctionStatus = 'WAITING';
@@ -265,21 +279,44 @@ exports.revertLastPlayer = async (req, res) => {
         lastPlayer.soldToTeamId = null;
         await lastPlayer.save();
 
-        if (state.playerQueue) {
-            state.playerQueue = state.playerQueue.filter(p => String(p._id) !== String(lastPlayer._id));
-            state.playerQueue.unshift(lastPlayer);
-            state.upcomingPlayers = state.playerQueue.slice(0, 3);
-            state.queueLength = state.playerQueue.length;
+        // --- MINI-AUCTION REVERT SYNC ---
+        if (state.mode === 'MINI' && state.miniAuctionWeekId) {
+            try {
+                // 1. Reset Pool Entry
+                await MiniAuctionPoolEntry.findOneAndUpdate(
+                    { auctionId, weekId: state.miniAuctionWeekId, playerId: lastPlayer._id },
+                    { status: 'AVAILABLE', soldToTeamId: null, soldPrice: 0 }
+                );
+
+                // 2. Clear Transaction (The most recent one for this player/week)
+                await RosterTransaction.findOneAndDelete(
+                    {
+                        auctionId,
+                        weekId: state.miniAuctionWeekId,
+                        playerId: lastPlayer._id,
+                        type: 'MINI_AUCTION_BUY'
+                    },
+                    { sort: { createdAt: -1 } }
+                );
+                
+                console.log(`Mini-Auction Revert Sync: ${lastPlayer.name} returned to pool`);
+            } catch (miniErr) {
+                console.error("Mini-Auction Revert Sync Error:", miniErr);
+            }
         }
 
-        if (state.currentPlayer && state.currentPlayer.status === 'unsold' && !state.currentPlayer.isPassed && String(state.currentPlayer._id) !== String(lastPlayer._id)) {
-             // Put the current unwrapped player back into the queue
-             if (state.playerQueue) {
-                  state.playerQueue = state.playerQueue.filter(p => String(p._id) !== String(state.currentPlayer._id));
-                  state.playerQueue.splice(1, 0, state.currentPlayer);
-                  state.upcomingPlayers = state.playerQueue.slice(0, 3);
-                  state.queueLength = state.playerQueue.length;
-             }
+        if (state.playerQueue) {
+            // Remove lastPlayer from queue in case it's already there
+            state.playerQueue = state.playerQueue.filter(p => String(p._id) !== String(lastPlayer._id));
+
+            // If we had already moved onto a different player, put that current player back in the queue waiting list
+            if (state.currentPlayer && state.currentPlayer.status === 'unsold' && !state.currentPlayer.isPassed && String(state.currentPlayer._id) !== String(lastPlayer._id)) {
+                state.playerQueue = state.playerQueue.filter(p => String(p._id) !== String(state.currentPlayer._id));
+                state.playerQueue.unshift(state.currentPlayer);
+            }
+
+            state.upcomingPlayers = state.playerQueue.slice(0, 3);
+            state.queueLength = state.playerQueue.length;
         }
 
         state.currentPlayer = lastPlayer;
@@ -340,5 +377,33 @@ exports.completeMainAuction = async (req, res) => {
 
     } catch (err) {
         res.status(500).json({ message: 'Server error compiling league bridge.', error: err.message });
+    }
+};
+
+exports.updatePrice = async (req, res) => {
+    try {
+        const { auctionId } = req.params;
+        const { newPrice } = req.body;
+        
+        if (newPrice === undefined || isNaN(newPrice)) {
+            return res.status(400).json({ message: 'Valid new price is required' });
+        }
+
+        const state = await getAuctionState(auctionId);
+        if (!state.currentPlayer) {
+            return res.status(400).json({ message: 'No active player to update price for' });
+        }
+
+        // Update the state
+        state.currentBid = Number(newPrice);
+        await setAuctionState(auctionId, state);
+
+        // Broadcast update
+        const io = req.app.get('io');
+        if (io) io.to(auctionId).emit('auctionUpdate', state);
+
+        res.status(200).json({ message: 'Price updated successfully', currentBid: state.currentBid });
+    } catch (err) {
+        res.status(500).json({ message: 'Server error updating price', error: err.message });
     }
 };

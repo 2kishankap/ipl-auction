@@ -2,6 +2,8 @@ const { getAuctionState, setAuctionState, getStateKey, getAllAuctionStatesMemory
 const { redis } = require('../services/redisService');
 const Player = require('../models/Player');
 const Team = require('../models/Team');
+const MiniAuctionPoolEntry = require('../models/MiniAuctionPoolEntry');
+const RosterTransaction = require('../models/RosterTransaction');
 
 let workerInterval = null;
 let ioInstance = null;
@@ -120,6 +122,30 @@ const processPlayerSold = async (auctionId, oldState) => {
             team.iplTeamCounts.set(player.iplTeam, currentIplCount + 1);
 
             await team.save();
+
+            // --- MINI-AUCTION SYNC ---
+            if (state.mode === 'MINI' && state.miniAuctionWeekId) {
+                try {
+                    // 1. Update Pool Entry
+                    await MiniAuctionPoolEntry.findOneAndUpdate(
+                        { auctionId, weekId: state.miniAuctionWeekId, playerId: player._id },
+                        { status: 'SOLD', soldToTeamId: team._id, soldPrice: state.currentBid }
+                    );
+
+                    // 2. Log Transaction
+                    await RosterTransaction.create({
+                        auctionId,
+                        weekId: state.miniAuctionWeekId,
+                        teamId: team._id,
+                        type: 'MINI_AUCTION_BUY',
+                        playerId: player._id,
+                        price: state.currentBid
+                    });
+                    console.log(`Mini-Auction Sale Sync: ${player.name} sold to ${team.teamName}`);
+                } catch (miniErr) {
+                    console.error("Mini-Auction Sale Sync Error:", miniErr);
+                }
+            }
         }
 
         state.auctionStatus = 'SOLD';
@@ -144,6 +170,18 @@ const processPlayerUnsold = async (auctionId, oldState) => {
             player.status = 'unsold';
             player.isPassed = true;
             await player.save();
+
+            // --- MINI-AUCTION SYNC ---
+            if (state.mode === 'MINI' && state.miniAuctionWeekId) {
+                try {
+                    await MiniAuctionPoolEntry.findOneAndUpdate(
+                        { auctionId, weekId: state.miniAuctionWeekId, playerId: player._id },
+                        { status: 'UNSOLD' }
+                    );
+                } catch (miniErr) {
+                    console.error("Mini-Auction Unsold Sync Error:", miniErr);
+                }
+            }
         }
         
         state.auctionStatus = 'WAITING';

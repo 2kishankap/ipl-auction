@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api'; // Use dynamic URL in prod, fallback to relative proxy in dev
+const API_URL = '/api'; // Using relative path so Vite proxy (and ngrok) handles it seamlessly
 export const api = axios.create({
   baseURL: API_URL,
 });

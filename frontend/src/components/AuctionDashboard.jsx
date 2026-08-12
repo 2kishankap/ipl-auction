@@ -28,6 +28,7 @@ const AuctionDashboard = () => {
     name: '',
     role: 'BAT',
     country: 'India',
+    iplTeam: 'Released',
     isOverseas: false,
     basePrice: 20000000,
     setNumber: 99
@@ -44,7 +45,7 @@ const AuctionDashboard = () => {
         setNumber: Number(newPlayerForm.setNumber)
       });
       setShowAddPlayer(false);
-      setNewPlayerForm({ name: '', role: 'BAT', country: 'India', isOverseas: false, basePrice: 20000000, setNumber: 99 });
+      setNewPlayerForm({ name: '', role: 'BAT', country: 'India', iplTeam: 'Released', isOverseas: false, basePrice: 20000000, setNumber: 99 });
       alert('Player manually injected into the Auction database!');
     } catch (err) {
       alert(err.response?.data?.message || err.message);
@@ -229,6 +230,23 @@ const AuctionDashboard = () => {
                     <option value={2000000}>20 Lakhs</option>
                   </select>
                 </div>
+                <div>
+                  <label className="text-xs font-bold tracking-wider text-slate-400">Current Team</label>
+                  <select value={newPlayerForm.iplTeam} onChange={e => setNewPlayerForm({...newPlayerForm, iplTeam: e.target.value})} className="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white focus:outline-none focus:border-brand-blue">
+                    <option value="Released">Released</option>
+                    <option value="NONE">None / Free Agent</option>
+                    <option value="CSK">Chennai Super Kings (CSK)</option>
+                    <option value="DC">Delhi Capitals (DC)</option>
+                    <option value="GT">Gujarat Titans (GT)</option>
+                    <option value="KKR">Kolkata Knight Riders (KKR)</option>
+                    <option value="LSG">Lucknow Super Giants (LSG)</option>
+                    <option value="MI">Mumbai Indians (MI)</option>
+                    <option value="PBKS">Punjab Kings (PBKS)</option>
+                    <option value="RR">Rajasthan Royals (RR)</option>
+                    <option value="RCB">Royal Challengers Bengaluru (RCB)</option>
+                    <option value="SRH">Sunrisers Hyderabad (SRH)</option>
+                  </select>
+                </div>
                 <div className="col-span-2 flex items-center mb-2">
                   <input type="checkbox" checked={newPlayerForm.isOverseas} onChange={e => setNewPlayerForm({...newPlayerForm, isOverseas: e.target.checked})} className="mr-2" id="isOverseas" />
                   <label htmlFor="isOverseas" className="text-sm font-bold text-slate-300 cursor-pointer">Is Overseas Player?</label>
@@ -248,9 +266,20 @@ const AuctionDashboard = () => {
           <Link to="/" className="p-2 bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition border border-slate-600">
             <Home className="w-5 h-5" />
           </Link>
-          <h1 className="text-xl font-bold tracking-widest text-white text-glow hidden md:block">
-            IPL AUCTION LIVE ({mode === 'admin' ? 'AUCTIONEER' : 'FRANCHISE'} VIEW)
-          </h1>
+          <div className="flex flex-col">
+            <h1 className="text-xl font-bold tracking-widest text-white text-glow hidden md:block">
+              IPL AUCTION LIVE ({mode === 'admin' ? 'AUCTIONEER' : 'FRANCHISE'} VIEW)
+            </h1>
+            <button 
+              onClick={() => {
+                const newMode = mode === 'admin' ? 'view' : 'admin';
+                navigate(`?mode=${newMode}`);
+              }}
+              className="text-[10px] uppercase font-black tracking-[0.2em] text-brand-blue hover:text-white transition text-left"
+            >
+              [ Switch to {mode === 'admin' ? 'Franchise' : 'Auctioneer'} View ]
+            </button>
+          </div>
         </div>
         <div className="flex items-center space-x-4">
           <button 

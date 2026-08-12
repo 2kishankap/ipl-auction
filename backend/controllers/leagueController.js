@@ -275,13 +275,13 @@ exports.submitReleaseRequest = async (req, res) => {
         const { auctionId, weekId, teamId } = req.params;
         const { releasedPlayerIds } = req.body;
         
-        if (!releasedPlayerIds || releasedPlayerIds.length > 2) {
-            return res.status(400).json({ message: 'A Franchise is legally barred from releasing more than 2 players per Gameweek.' });
+        if (!releasedPlayerIds || releasedPlayerIds.length > 3) {
+            return res.status(400).json({ message: 'A Franchise is legally barred from releasing more than 3 players per Gameweek.' });
         }
 
         const releaseReq = await WeeklyReleaseRequest.findOneAndUpdate(
             { weekId, teamId }, 
-            { auctionId, weekId, teamId, releasedPlayerIds }, 
+            { auctionId, weekId, teamId, releasedPlayerIds, status: 'PENDING' }, 
             { new: true, upsert: true, runValidators: true }
         );
         res.status(200).json(releaseReq);

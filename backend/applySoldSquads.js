@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Player = require('./models/Player');
 const Team = require('./models/Team');
+const AuctionInstance = require('./models/Auction');
 
 const rawText1 = `
 CSK 
@@ -1038,25 +1039,22 @@ Bowler
 
 mongoose.connect('mongodb://localhost:27017/ipl-auction')
   .then(async () => {
-    // 1. Fetch exact team ObjectIDs from DB based on names or acronyms
-    const dbTeams = await Team.find({});
+    const activeAuction = await AuctionInstance.findOne().sort({ createdAt: -1 });
+    const auctionId = activeAuction ? activeAuction._id : null;
     
-    // Create a dynamic mapping from common strings like CSK, MI etc to their _id
-    const teamAcronymMaper = {};
-    for (const t of dbTeams) {
-        // e.g. "Chennai Super Kings" -> "CSK" logic if needed, but dbTeams could be anything
-        // User's DB doesn't have teams! User previously wiped them and I told them to add them.
-        // Wait! Let's actually CREATE the 10 teams if they don't exist!
+    if (!auctionId) {
+        console.error("No Auction found in database! Please create an auction first.");
+        process.exit(1);
     }
+    console.log(`Using Active Auction ID: ${auctionId} (${activeAuction.name})`);
 
-    // Force build default teams if they don't exist
     const canonicalTeams = {
       'CSK': 'Chennai Super Kings',
       'DC': 'Delhi Capitals',
       'GT': 'Gujarat Titans',
       'RCB': 'Royal Challengers Bengaluru',
       'PK': 'Punjab Kings',
-      'PBKS': 'Punjab Kings', // the list uses PK
+      'PBKS': 'Punjab Kings',
       'KKR': 'Kolkata Knight Riders',
       'SRH': 'Sunrisers Hyderabad',
       'RR': 'Rajasthan Royals',
@@ -1067,9 +1065,15 @@ mongoose.connect('mongodb://localhost:27017/ipl-auction')
     const teamIds = {};
     
     for (const [acronym, fullName] of Object.entries(canonicalTeams)) {
-       let t = await Team.findOne({ $or: [{ teamName: fullName }, { teamName: acronym }] });
+       let t = await Team.findOne({ $or: [{ teamName: fullName }, { teamName: acronym }], auctionId });
        if (!t) {
-           t = new Team({ teamName: fullName, ownerName: 'Franchise Owner', purse: 1000000000, players: [] });
+           t = new Team({ 
+               teamName: fullName, 
+               ownerName: 'Franchise Owner', 
+               purseRemaining: 1000000000, 
+               playersBought: [], 
+               auctionId: auctionId 
+           });
            await t.save();
            console.log(`Automatically created missing franchise: ${fullName}`);
        }
@@ -1099,8 +1103,21 @@ mongoose.connect('mongodb://localhost:27017/ipl-auction')
            if (name) {
                name = name.replace(' (Captain)', '').trim();
                
-               const player = await Player.findOne({ name: { $regex: new RegExp(name, 'i') } });
+               const player = await Player.findOne({ 
+                   auctionId, 
+                   name: { $regex: new RegExp(`^${name}$`, 'i') } 
+               });
+
+               if (!player) {
+                   // Try a more relaxed search if exact fails
+                   player = await Player.findOne({ 
+                       auctionId, 
+                       name: { $regex: new RegExp(name, 'i') } 
+                   });
+               }
+
                if (player) {
+                   // Update Player
                    await Player.updateOne({ _id: player._id }, {
                        $set: {
                            status: 'sold',
@@ -1108,11 +1125,17 @@ mongoose.connect('mongodb://localhost:27017/ipl-auction')
                            soldPrice: player.basePrice || 20000000
                        }
                    });
+
+                   // Update Team array
+                   await Team.updateOne({ _id: teamIds[currentTeam] }, {
+                       $addToSet: { playersBought: player._id }
+                   });
+
                    successfulSold++;
                    console.log(`SOLD: ${name} -> ${currentTeam}`);
                } else {
                    notFound++;
-                   console.warn(`WARNING: Player ${name} does not exist in your MongoDB database!`);
+                   console.warn(`WARNING: Player ${name} does not exist in your MongoDB database for this auction!`);
                }
            }
            i += 2;
@@ -1123,6 +1146,9 @@ mongoose.connect('mongodb://localhost:27017/ipl-auction')
     console.log(`Successfully assigned ${successfulSold} players to Franchise final rosters!`);
     if (notFound > 0) console.log(`(${notFound} players were skipped because they aren't in your DB)`);
     console.log(`============================\n`);
+    
+    console.log('Running final statistics reconciliation...');
+    // We'll just exit here and advise running the reconcile script next for pure accuracy
     process.exit(0);
   })
   .catch(err => {

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = import.meta.env.VITE_API_URL || '/';
+const SOCKET_URL = '/'; // Empty/root path so Vite proxy (and ngrok) handles it seamlessly
 
 const SocketContext = createContext(null);
 

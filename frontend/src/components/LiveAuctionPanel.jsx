@@ -5,12 +5,18 @@ import AuctionHistory from './AuctionHistory';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuctionSounds } from '../hooks/useAuctionSounds';
 import { useSoldAnimation } from '../hooks/useSoldAnimation';
-import { Volume2, VolumeX } from 'lucide-react';
+import { Volume2, VolumeX, Edit2 } from 'lucide-react';
+import { api } from '../services/api';
 import Timer from './Timer';
 
 const LiveAuctionPanel = ({ teams, startAuction }) => {
-  const { auctionState, soldEvent } = useSocket();
+  const { auctionState, soldEvent, auctionId } = useSocket();
   const { currentPlayer, currentBid, highestBidderTeamName, auctionStatus } = auctionState;
+
+  const queryParameters = new URLSearchParams(window.location.search);
+  const urlMode = queryParameters.get("mode");
+  const localMode = localStorage.getItem(`auctionAdmin_${auctionId}`) === 'true' ? 'admin' : null;
+  const mode = urlMode || localMode;
 
   const { isMuted, toggleMute, playBidSound, playSoldSound } = useAuctionSounds();
   const { showHammer, animationData } = useSoldAnimation(auctionStatus, soldEvent);
@@ -31,6 +37,19 @@ const LiveAuctionPanel = ({ teams, startAuction }) => {
       playSoldSound();
     }
   }, [auctionStatus, playSoldSound]);
+
+  const handleUpdatePrice = async () => {
+    const val = window.prompt("Enter manual price in Crores (e.g. 5 for 5 Cr, 0.5 for 50 Lakhs):", (currentBid / 10000000).toFixed(2));
+    if (val === null) return;
+    const newPrice = parseFloat(val) * 10000000;
+    if (isNaN(newPrice)) return alert("Invalid price entered");
+    
+    try {
+      await api.post(`/auction/${auctionId}/update-price`, { newPrice });
+    } catch (err) {
+      alert(err.response?.data?.message || err.message);
+    }
+  };
 
   const formatMoney = (amount) => (amount ? (amount / 10000000).toFixed(2) + ' Cr' : '0 Cr');
 
@@ -125,9 +144,16 @@ const LiveAuctionPanel = ({ teams, startAuction }) => {
             <motion.div 
                animate={flashBid ? { scale: [1, 1.15, 1], color: "#34d399", textShadow: "0 0 30px #10b981" } : {}}
                transition={{ duration: 0.3 }}
-               className="text-4xl font-black text-brand-green glow-green flex items-center"
+               className={`text-4xl font-black text-brand-green glow-green flex items-center transition-all ${mode === 'admin' ? 'cursor-pointer hover:scale-105 active:scale-95' : ''}`}
+               onClick={mode === 'admin' ? handleUpdatePrice : undefined}
+               title={mode === 'admin' ? "Click to manually edit price" : ""}
             >
                ₹ {formatMoney(currentBid)}
+               {mode === 'admin' && (
+                 <div className="ml-3 p-1.5 bg-brand-green/20 text-brand-green rounded-md border border-brand-green/30 group-hover:bg-brand-green/30 transition-colors">
+                   <Edit2 className="w-5 h-5" />
+                 </div>
+               )}
             </motion.div>
             
             <div className="mt-2 flex flex-col items-center">

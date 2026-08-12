@@ -18,13 +18,30 @@ exports.seedPool = async (req, res) => {
             const playerIds = release.releasedPlayerIds || [];
             for (const playerId of playerIds) {
                 try {
-                    await MiniAuctionPoolEntry.create({
-                        auctionId, weekId, playerId,
-                        source: 'RELEASED',
-                        releasedByTeamId: release.teamId
-                    });
+                    // Check if player is already in the pool
+                    let existingEntry = await MiniAuctionPoolEntry.findOne({ auctionId, weekId, playerId });
                     
-                    // Log the release transaction
+                    if (existingEntry) {
+                        // If they were already processed as a RELEASE by this exact team, skip entirely.
+                        if (existingEntry.source === 'RELEASED' && String(existingEntry.releasedByTeamId) === String(release.teamId)) {
+                            continue;
+                        }
+                        
+                        // Otherwise, they might be a phantom MAIN_UNSOLD entry that was bought later. We MUST overwrite them to RELEASED.
+                        existingEntry.source = 'RELEASED';
+                        existingEntry.releasedByTeamId = release.teamId;
+                        existingEntry.status = 'AVAILABLE';
+                        await existingEntry.save();
+                    } else {
+                        // Brand new eviction entry
+                        await MiniAuctionPoolEntry.create({
+                            auctionId, weekId, playerId,
+                            source: 'RELEASED',
+                            releasedByTeamId: release.teamId
+                        });
+                    }
+                    
+                    // Log the release transaction (this is safe because we skipped actual duplicates above)
                     await RosterTransaction.create({
                         auctionId, weekId,
                         teamId: release.teamId,
@@ -40,6 +57,20 @@ exports.seedPool = async (req, res) => {
                         if (player) {
                             team.purseRemaining += player.soldPrice || 0;
                             if (player.isOverseas) team.overseasCount = Math.max(0, team.overseasCount - 1);
+                            
+                            if (player.role === 'WK' || player.role === 'BAT') {
+                                team.roleCounts.wkBatCount = Math.max(0, team.roleCounts.wkBatCount - 1);
+                            } else if (player.role === 'ALL' || player.role === 'BOWL') {
+                                team.roleCounts.allBowlCount = Math.max(0, team.roleCounts.allBowlCount - 1);
+                            }
+
+                            if (player.iplTeam) {
+                                const currentIplCount = team.iplTeamCounts.get(player.iplTeam) || 0;
+                                if (currentIplCount > 0) {
+                                    team.iplTeamCounts.set(player.iplTeam, currentIplCount - 1);
+                                }
+                            }
+
                             player.status = 'unsold';
                             player.soldPrice = 0;
                             player.soldToTeamId = null;
@@ -49,7 +80,7 @@ exports.seedPool = async (req, res) => {
                     }
                     seeded++;
                 } catch (e) {
-                    if (e.code !== 11000) console.error(e); // Ignore duplicate key errors
+                    console.error('Error processing single release entry:', e);
                 }
             }
             release.status = 'PROCESSED';

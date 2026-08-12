@@ -11,5 +11,6 @@ router.get('/:auctionId/state', auctionController.getState);
 router.get('/:auctionId/export/team/:teamId', auctionController.exportTeamSquad);
 router.post('/:auctionId/revert', auctionController.revertLastPlayer);
 router.post('/:auctionId/complete', auctionController.completeMainAuction);
+router.post('/:auctionId/update-price', auctionController.updatePrice);
 
 module.exports = router;
