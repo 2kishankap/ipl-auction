@@ -1,9 +1,9 @@
 const Redis = require('ioredis');
 
-// Connect to default local Redis
-const redis = new Redis({
-  host: '127.0.0.1',
-  port: 6379,
+// Use REDIS_URL when provided (e.g. Render), otherwise fall back to local Redis
+const redisUrl = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
+
+const redis = new Redis(redisUrl, {
   retryStrategy(times) {
     const delay = Math.min(times * 50, 2000);
     return delay;

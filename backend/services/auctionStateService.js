@@ -1,4 +1,5 @@
-const { redis, isReady } = require('./redisService');
+const redisService = require('./redisService');
+const { redis } = redisService;
 
 const DEFAULT_STATE = {
     currentPlayer: null,
@@ -19,7 +20,7 @@ const getStateKey = (auctionId) => `auction:state:${auctionId}`;
 const getAuctionState = async (auctionId) => {
     if (!auctionId) throw new Error("auctionId is required");
     
-    if (!isReady) {
+    if (!redisService.isReady) {
         if (!memoryState[auctionId]) memoryState[auctionId] = { ...DEFAULT_STATE };
         return { ...memoryState[auctionId] };
     }
@@ -40,7 +41,7 @@ const getAuctionState = async (auctionId) => {
 const setAuctionState = async (auctionId, newState) => {
     if (!auctionId) throw new Error("auctionId is required");
 
-    if (!isReady) {
+    if (!redisService.isReady) {
         memoryState[auctionId] = { ...newState };
         return true;
     }

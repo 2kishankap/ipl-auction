@@ -4,6 +4,9 @@ const socketIo = require('socket.io');
 const cors = require('cors');
 const dotenv = require('dotenv');
 
+// Load env before requiring modules that read it at load time (e.g. redisService)
+dotenv.config();
+
 const connectDB = require('./config/db');
 const socketHandler = require('./socket/socketHandler');
 const { initTimerWorker } = require('./workers/timerWorker');
@@ -14,8 +17,6 @@ const auctionRoutes = require('./routes/auctionRoutes');
 const auctionInstanceRoutes = require('./routes/auctionInstanceRoutes');
 const leagueRoutes = require('./routes/leagueRoutes');
 const miniAuctionRoutes = require('./routes/miniAuctionRoutes');
-
-dotenv.config();
 
 // Connect Database
 connectDB();
